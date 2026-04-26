@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	FormatText = "text"
-	FormatJSON = "json"
+	FormatText       = "text"
+	FormatPrettyText = "prettytext"
+	FormatJSON       = "json"
 )
 
 type Level = zapcore.Level
@@ -37,8 +38,8 @@ func (c Config) normalizedFormat() string {
 	switch c.Format {
 	case "", FormatText:
 		return FormatText
-	case FormatJSON:
-		return FormatJSON
+	case FormatJSON, FormatPrettyText:
+		return c.Format
 	default:
 		return FormatText
 	}

@@ -36,18 +36,30 @@ func New(cfg Config) (*zap.Logger, error) {
 	}
 
 	var encoder zapcore.Encoder
+	var core zapcore.Core
 	switch cfg.normalizedFormat() {
 	case FormatJSON:
 		encoder = zapcore.NewJSONEncoder(encoderConfig)
+		output := cfg.Output
+		if output == nil {
+			output = os.Stdout
+		}
+		core = zapcore.NewCore(encoder, zapcore.AddSync(output), level)
+	case FormatPrettyText:
+		output := cfg.Output
+		if output == nil {
+			output = os.Stdout
+		}
+		core = newPrettyCore(level, zapcore.AddSync(output), prettyColorEnabled(output))
 	default:
 		encoder = zapcore.NewConsoleEncoder(encoderConfig)
+		output := cfg.Output
+		if output == nil {
+			output = os.Stdout
+		}
+		core = zapcore.NewCore(encoder, zapcore.AddSync(output), level)
 	}
 
-	output := cfg.Output
-	if output == nil {
-		output = os.Stdout
-	}
-	core := zapcore.NewCore(encoder, zapcore.AddSync(output), level)
 	options := []zap.Option{
 		zap.AddStacktrace(cfg.stacktraceAt()),
 	}

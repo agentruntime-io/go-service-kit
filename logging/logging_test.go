@@ -130,6 +130,70 @@ func TestNewTextLoggerIncludesServiceField(t *testing.T) {
 	}
 }
 
+func TestPrettyTextLoggerFormatsFieldsAndMessage(t *testing.T) {
+	var buf bytes.Buffer
+	logger, err := New(Config{
+		Service: "control-service",
+		Format:  FormatPrettyText,
+		Level:   "info",
+		Output:  &buf,
+	})
+	if err != nil {
+		t.Fatalf("new logger: %v", err)
+	}
+
+	logger.Info("schema status checker batch started",
+		TraceID("trace-1"),
+		SpanID("span-1"),
+		Bool("trace_sampled", true),
+		Int("server_count", 4),
+	)
+
+	out := buf.String()
+	for _, want := range []string{
+		"service=control-service",
+		"trace_id=trace-1",
+		"span_id=span-1",
+		"trace_sampled=true",
+		"server_count=4",
+		`msg="schema status checker batch started"`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("prettytext log missing %s in %s", want, out)
+		}
+	}
+	if strings.Contains(out, "{") {
+		t.Fatalf("prettytext should not render trailing JSON object: %s", out)
+	}
+}
+
+func TestPrettyTextLoggerPrintsSQLOnSeparateLine(t *testing.T) {
+	var buf bytes.Buffer
+	logger, err := New(Config{
+		Service: "control-service",
+		Format:  FormatPrettyText,
+		Level:   "warn",
+		Output:  &buf,
+	})
+	if err != nil {
+		t.Fatalf("new logger: %v", err)
+	}
+
+	logger.Warn("db query slow",
+		DurationMSFloat(250*time.Millisecond),
+		Int64("rows", 3),
+		String("sql", "SELECT * FROM workflows"),
+	)
+
+	out := buf.String()
+	if !strings.Contains(out, `msg="db query slow"`) {
+		t.Fatalf("missing message in prettytext sql log: %s", out)
+	}
+	if !strings.Contains(out, "\n    sql=") {
+		t.Fatalf("expected multiline sql rendering in prettytext log: %s", out)
+	}
+}
+
 func TestRedactedValue(t *testing.T) {
 	if got := RedactedValue(); !strings.Contains(got, "REDACTED") {
 		t.Fatalf("unexpected redacted marker %q", got)

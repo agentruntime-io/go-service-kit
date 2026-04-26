@@ -4,6 +4,23 @@ All notable changes to `go-service-kit` will be documented in this file.
 
 The format is based on Keep a Changelog, adapted for this repository.
 
+## [0.1.2] - 2026-04-26
+
+### Added
+
+- `prettytext` log format for local human-readable backend logs
+- custom pretty text renderer with:
+  - timestamp, level, and caller prefix
+  - stable inline `key=value` fields
+  - `msg="..."` at the end of the line
+  - optional ANSI color when writing to an interactive terminal
+  - multiline rendering for SQL payloads and stacktraces
+
+### Changed
+
+- local `control-service` environments now default to `prettytext` instead of plain `text`
+- `control-service` logging config now accepts `json`, `text`, and `prettytext`
+
 ## [0.1.1] - 2026-04-26
 
 ### Added
