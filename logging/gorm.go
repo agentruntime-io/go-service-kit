@@ -62,6 +62,7 @@ func (l *gormAdapter) Trace(ctx context.Context, begin time.Time, fc func() (str
 	elapsed := time.Since(begin)
 	sql, rows := fc()
 	attrs := []any{
+		Kind("db"),
 		DurationMSFloat(elapsed),
 		"rows", rows,
 		"sql", compactSQL(sql),

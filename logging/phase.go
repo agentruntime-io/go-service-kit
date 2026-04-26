@@ -22,6 +22,7 @@ func LogPhase(logger *zap.Logger, ctx context.Context, event PhaseLog) {
 
 	fields := make([]zap.Field, 0, 8+len(event.Fields))
 	fields = append(fields, CorrelationFields(ctx)...)
+	fields = append(fields, Kind("phase"))
 	if event.Phase != "" {
 		fields = append(fields, Phase(event.Phase))
 	}

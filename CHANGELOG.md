@@ -21,6 +21,25 @@ The format is based on Keep a Changelog, adapted for this repository.
 - local `control-service` environments now default to `prettytext` instead of plain `text`
 - `control-service` logging config now accepts `json`, `text`, and `prettytext`
 
+## [0.1.3] - 2026-04-27
+
+### Added
+
+- event-class-aware `prettytext` rendering for:
+  - request logs
+  - dependency logs
+  - DB and slow SQL logs
+  - phase logs
+  - startup logs
+  - generic logs
+- optional `kind` field helper for explicit local pretty rendering control
+
+### Changed
+
+- `prettytext` now renders human-first multiline blocks instead of inline `msg="..."`
+- request completion, dependency failure, phase, and GORM helpers now tag their output with a stable event kind for richer `prettytext` formatting
+- local service runs can now use a more readable console mode without changing JSON or plain text semantics
+
 ## [0.1.1] - 2026-04-26
 
 ### Added

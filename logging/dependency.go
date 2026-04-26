@@ -31,6 +31,7 @@ func LogDependencyFailure(logger *zap.Logger, ctx context.Context, event Depende
 
 	fields := make([]zap.Field, 0, 12+len(event.Fields))
 	fields = append(fields, CorrelationFields(ctx)...)
+	fields = append(fields, Kind("dependency"))
 	if event.Dependency != "" {
 		fields = append(fields, Dependency(event.Dependency))
 	}

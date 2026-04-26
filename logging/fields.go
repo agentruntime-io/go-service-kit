@@ -22,6 +22,7 @@ func ServerID(value string) zap.Field     { return zap.String("server_id", value
 func ConnectionID(value string) zap.Field { return zap.String("connection_id", value) }
 func ProfileID(value string) zap.Field    { return zap.String("profile_id", value) }
 func Component(value string) zap.Field    { return zap.String("component", value) }
+func Kind(value string) zap.Field         { return zap.String("kind", value) }
 func Phase(value string) zap.Field        { return zap.String("phase", value) }
 func Operation(value string) zap.Field    { return zap.String("operation", value) }
 func Dependency(value string) zap.Field   { return zap.String("dependency", value) }

@@ -14,9 +14,9 @@ The first package in this repo is `logging`, which standardizes:
 
 ## Status
 
-Current release: `v0.1.2`
+Current release: `v0.1.3`
 
-`v0.1.2` adds the first human-first local log renderer, `prettytext`, on top of the migration-ready logging surface from `v0.1.1`.
+`v0.1.3` refines `prettytext` into a real local console renderer with event-class layouts for request, dependency, DB, phase, startup, and generic logs.
 
 ## Package
 
@@ -29,7 +29,7 @@ github.com/agentruntime-io/go-service-kit
 Install:
 
 ```powershell
-go get github.com/agentruntime-io/go-service-kit@v0.1.2
+go get github.com/agentruntime-io/go-service-kit@v0.1.3
 ```
 
 Import:
@@ -64,10 +64,11 @@ logger.Info(
 
 For local human-readable output, `prettytext` renders logs with:
 
-- timestamp, level, and caller first
-- stable `key=value` field ordering
-- `msg="..."` at the end
-- optional terminal colors
+- event-class-aware layouts for request, dependency, DB, phase, startup, and generic logs
+- timestamp, level, event class, and caller in the header
+- readable message-first body formatting instead of inline `msg="..."`
+- stable field ordering
+- optional terminal colors on interactive terminals
 - multiline rendering for selected payloads such as SQL
 
 Emit a standard request completion log:
@@ -113,9 +114,6 @@ logging.LogPhase(logger, ctx, logging.PhaseLog{
 
 - [CHANGELOG.md](C:/agentruntime/agentruntime/go-common/go-service-kit/CHANGELOG.md)
 - [RELEASING.md](C:/agentruntime/agentruntime/go-common/go-service-kit/RELEASING.md)
-- [RELEASE_NOTES_v0.1.0.md](C:/agentruntime/agentruntime/go-common/go-service-kit/RELEASE_NOTES_v0.1.0.md)
-- [RELEASE_NOTES_v0.1.1.md](C:/agentruntime/agentruntime/go-common/go-service-kit/RELEASE_NOTES_v0.1.1.md)
-- [RELEASE_NOTES_v0.1.2.md](C:/agentruntime/agentruntime/go-common/go-service-kit/RELEASE_NOTES_v0.1.2.md)
 
 ## License
 

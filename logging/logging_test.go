@@ -151,12 +151,14 @@ func TestPrettyTextLoggerFormatsFieldsAndMessage(t *testing.T) {
 
 	out := buf.String()
 	for _, want := range []string{
+		"INFO",
+		"generic",
+		"schema status checker batch started",
 		"service=control-service",
 		"trace_id=trace-1",
 		"span_id=span-1",
 		"trace_sampled=true",
 		"server_count=4",
-		`msg="schema status checker batch started"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("prettytext log missing %s in %s", want, out)
@@ -164,6 +166,9 @@ func TestPrettyTextLoggerFormatsFieldsAndMessage(t *testing.T) {
 	}
 	if strings.Contains(out, "{") {
 		t.Fatalf("prettytext should not render trailing JSON object: %s", out)
+	}
+	if strings.Contains(out, "msg=") {
+		t.Fatalf("prettytext generic renderer should not use msg=: %s", out)
 	}
 }
 
@@ -180,17 +185,122 @@ func TestPrettyTextLoggerPrintsSQLOnSeparateLine(t *testing.T) {
 	}
 
 	logger.Warn("db query slow",
+		Kind("db"),
 		DurationMSFloat(250*time.Millisecond),
 		Int64("rows", 3),
+		Int("slow_threshold_ms", 200),
+		TraceID("trace-1"),
+		SpanID("span-1"),
 		String("sql", "SELECT * FROM workflows"),
 	)
 
 	out := buf.String()
-	if !strings.Contains(out, `msg="db query slow"`) {
-		t.Fatalf("missing message in prettytext sql log: %s", out)
+	for _, want := range []string{
+		"WARN",
+		"db",
+		"slow query:",
+		"250ms",
+		"rows=3",
+		"threshold=200",
+		"trace_id=trace-1",
+		"span_id=span-1",
+		"SELECT *",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("prettytext db log missing %s in %s", want, out)
+		}
 	}
-	if !strings.Contains(out, "\n    sql=") {
-		t.Fatalf("expected multiline sql rendering in prettytext log: %s", out)
+	if strings.Contains(out, "msg=") {
+		t.Fatalf("db prettytext should not use msg=: %s", out)
+	}
+	if !strings.Contains(out, "\n  SELECT *") {
+		t.Fatalf("expected multiline SQL rendering in prettytext log: %s", out)
+	}
+}
+
+func TestPrettyTextRequestRendererUsesRequestLayout(t *testing.T) {
+	var buf bytes.Buffer
+	logger, err := New(Config{
+		Service: "control-service",
+		Format:  FormatPrettyText,
+		Level:   "info",
+		Output:  &buf,
+	})
+	if err != nil {
+		t.Fatalf("new logger: %v", err)
+	}
+
+	ctx := WithRequestID(context.Background(), "req-1")
+	LogRequestComplete(logger, ctx, RequestComplete{
+		Service:      "control",
+		Method:       http.MethodPost,
+		Route:        "/internal/mcp/config",
+		Status:       http.StatusForbidden,
+		Duration:     42 * time.Millisecond,
+		ErrorCode:    "active_profile_missing",
+		ErrorMessage: "instance has no active config profile",
+		Fields: []any{
+			TenantID("tenant-1"),
+			InstanceID("inst-1"),
+		},
+	})
+
+	out := buf.String()
+	for _, want := range []string{
+		"request",
+		"POST /internal/mcp/config 403 42ms",
+		"request_id=req-1",
+		"tenant_id=tenant-1",
+		"instance_id=inst-1",
+		"error_code=active_profile_missing",
+		"error_message=\"instance has no active config profile\"",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("prettytext request log missing %s in %s", want, out)
+		}
+	}
+	if strings.Contains(out, "control request completed") {
+		t.Fatalf("request prettytext should not surface the generic completion message: %s", out)
+	}
+}
+
+func TestPrettyTextDependencyRendererUsesDependencyLayout(t *testing.T) {
+	var buf bytes.Buffer
+	logger, err := New(Config{
+		Service: "control-service",
+		Format:  FormatPrettyText,
+		Level:   "info",
+		Output:  &buf,
+	})
+	if err != nil {
+		t.Fatalf("new logger: %v", err)
+	}
+
+	LogDependencyFailure(logger, context.Background(), DependencyFailure{
+		Message:    "vault read failed while resolving MCP source spec values",
+		Dependency: "vault",
+		Operation:  "source_spec_read",
+		URLHost:    "vault.dev.agentruntime.io",
+		URLPath:    "/v1/secret",
+		Status:     http.StatusBadGateway,
+		Duration:   132 * time.Millisecond,
+		ErrorCode:  "vault_read_failed",
+	})
+
+	out := buf.String()
+	for _, want := range []string{
+		"dependency",
+		"vault read failed while resolving MCP source spec values",
+		"dependency=vault",
+		"operation=source_spec_read",
+		"status=502",
+		"132ms",
+		"url_host=vault.dev.agentruntime.io",
+		"url_path=/v1/secret",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("prettytext dependency log missing %s in %s", want, out)
+		}
 	}
 }
 

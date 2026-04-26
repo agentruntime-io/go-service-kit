@@ -30,6 +30,7 @@ func LogRequestComplete(logger *zap.Logger, ctx context.Context, event RequestCo
 
 	fields := make([]zap.Field, 0, 12+len(event.Fields))
 	fields = append(fields, CorrelationFields(ctx)...)
+	fields = append(fields, Kind("request"))
 	if event.Method != "" {
 		fields = append(fields, Method(event.Method))
 	}
