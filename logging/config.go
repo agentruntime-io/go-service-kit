@@ -1,10 +1,23 @@
 package logging
 
-import "go.uber.org/zap/zapcore"
+import (
+	"io"
+
+	"go.uber.org/zap/zapcore"
+)
 
 const (
 	FormatText = "text"
 	FormatJSON = "json"
+)
+
+type Level = zapcore.Level
+
+const (
+	LevelDebug = zapcore.DebugLevel
+	LevelInfo  = zapcore.InfoLevel
+	LevelWarn  = zapcore.WarnLevel
+	LevelError = zapcore.ErrorLevel
 )
 
 // Config controls shared logger construction for Go backend services.
@@ -12,6 +25,8 @@ type Config struct {
 	Service string
 	Format  string
 	Level   string
+
+	Output io.Writer
 
 	AddCaller       bool
 	DisableCaller   bool

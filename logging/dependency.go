@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type DependencyFailure struct {
+	Message    string
 	Dependency string
 	Operation  string
 	Activity   string
@@ -19,7 +21,7 @@ type DependencyFailure struct {
 	Duration   time.Duration
 	ErrorCode  string
 	Err        error
-	Fields     []zap.Field
+	Fields     []any
 }
 
 func LogDependencyFailure(logger *zap.Logger, ctx context.Context, event DependencyFailure) {
@@ -27,7 +29,7 @@ func LogDependencyFailure(logger *zap.Logger, ctx context.Context, event Depende
 		return
 	}
 
-	fields := make([]zap.Field, 0, 10+len(event.Fields))
+	fields := make([]zap.Field, 0, 12+len(event.Fields))
 	fields = append(fields, CorrelationFields(ctx)...)
 	if event.Dependency != "" {
 		fields = append(fields, Dependency(event.Dependency))
@@ -48,17 +50,17 @@ func LogDependencyFailure(logger *zap.Logger, ctx context.Context, event Depende
 		fields = append(fields, Status(event.Status))
 	}
 	if event.Duration > 0 {
-		fields = append(fields, DurationMS(event.Duration))
+		fields = append(fields, DurationMSFloat(event.Duration))
 	}
 	if event.ErrorCode != "" {
 		fields = append(fields, ErrorCode(event.ErrorCode))
 	}
 	if event.Err != nil {
-		fields = append(fields, Error(event.Err))
+		fields = append(fields, ErrorField(event.Err))
 	}
-	fields = append(fields, event.Fields...)
+	fields = append(fields, AttrsToFields(event.Fields...)...)
 
-	logger.Error(dependencyFailureMessage(event), fields...)
+	writeFields(logger, dependencyFailureLevel(event.Status, event.Err), dependencyFailureMessage(event), dedupeFields(fields)...)
 }
 
 func ObserveHTTPDependency(dependency, operation, activity string, req *http.Request, status int, duration time.Duration, err error) DependencyFailure {
@@ -81,6 +83,9 @@ func ObserveHTTPDependency(dependency, operation, activity string, req *http.Req
 }
 
 func dependencyFailureMessage(event DependencyFailure) string {
+	if event.Message != "" {
+		return event.Message
+	}
 	dependency := event.Dependency
 	if dependency == "" {
 		dependency = "dependency"
@@ -93,4 +98,15 @@ func dependencyFailureMessage(event DependencyFailure) string {
 		return dependency + " " + operation + " failed while " + event.Activity
 	}
 	return dependency + " " + operation + " failed"
+}
+
+func dependencyFailureLevel(status int, err error) zapcore.Level {
+	switch {
+	case err != nil || status >= http.StatusInternalServerError:
+		return LevelError
+	case status >= http.StatusBadRequest:
+		return LevelWarn
+	default:
+		return LevelInfo
+	}
 }

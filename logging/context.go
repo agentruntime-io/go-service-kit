@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"sync"
 
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
@@ -20,29 +21,52 @@ const (
 	serverIDKey   contextKey = "server_id"
 )
 
+type ContextFieldExtractor func(context.Context) []zap.Field
+
+var (
+	contextFieldExtractorsMu sync.RWMutex
+	contextFieldExtractors   []ContextFieldExtractor
+)
+
 func WithRequestID(ctx context.Context, value string) context.Context {
 	return context.WithValue(ctx, requestIDKey, value)
 }
+
 func WithTenantID(ctx context.Context, value string) context.Context {
 	return context.WithValue(ctx, tenantIDKey, value)
 }
+
 func WithProjectID(ctx context.Context, value string) context.Context {
 	return context.WithValue(ctx, projectIDKey, value)
 }
+
 func WithUserID(ctx context.Context, value string) context.Context {
 	return context.WithValue(ctx, userIDKey, value)
 }
+
 func WithWorkflowID(ctx context.Context, value string) context.Context {
 	return context.WithValue(ctx, workflowIDKey, value)
 }
+
 func WithRunID(ctx context.Context, value string) context.Context {
 	return context.WithValue(ctx, runIDKey, value)
 }
+
 func WithInstanceID(ctx context.Context, value string) context.Context {
 	return context.WithValue(ctx, instanceIDKey, value)
 }
+
 func WithServerID(ctx context.Context, value string) context.Context {
 	return context.WithValue(ctx, serverIDKey, value)
+}
+
+func RegisterContextFieldExtractor(extractor ContextFieldExtractor) {
+	if extractor == nil {
+		return
+	}
+	contextFieldExtractorsMu.Lock()
+	defer contextFieldExtractorsMu.Unlock()
+	contextFieldExtractors = append(contextFieldExtractors, extractor)
 }
 
 func CorrelationFields(ctx context.Context) []zap.Field {
@@ -50,7 +74,7 @@ func CorrelationFields(ctx context.Context) []zap.Field {
 		return nil
 	}
 
-	fields := make([]zap.Field, 0, 8)
+	fields := make([]zap.Field, 0, 10)
 	if value, ok := valueFromContext(ctx, requestIDKey); ok {
 		fields = append(fields, RequestID(value))
 	}
@@ -78,10 +102,21 @@ func CorrelationFields(ctx context.Context) []zap.Field {
 
 	spanContext := trace.SpanContextFromContext(ctx)
 	if spanContext.IsValid() {
-		fields = append(fields, TraceID(spanContext.TraceID().String()))
-		fields = append(fields, SpanID(spanContext.SpanID().String()))
+		fields = append(fields,
+			TraceID(spanContext.TraceID().String()),
+			SpanID(spanContext.SpanID().String()),
+			TraceSampled(spanContext.IsSampled()),
+		)
 	}
-	return fields
+
+	contextFieldExtractorsMu.RLock()
+	extractors := append([]ContextFieldExtractor(nil), contextFieldExtractors...)
+	contextFieldExtractorsMu.RUnlock()
+	for _, extractor := range extractors {
+		fields = append(fields, extractor(ctx)...)
+	}
+
+	return dedupeFields(fields)
 }
 
 func valueFromContext(ctx context.Context, key contextKey) (string, bool) {

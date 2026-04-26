@@ -14,9 +14,9 @@ The first package in this repo is `logging`, which standardizes:
 
 ## Status
 
-Current release: `v0.1.0`
+Current release: `v0.1.1`
 
-This is the first public cut of the kit. The package is ready for adoption, but the API is still expected to evolve while the first services migrate onto it.
+`v0.1.1` is the first migration-driven refinement release. The package is now strong enough to back a full `control-service` logging migration, while still staying narrow enough to evolve before `v1.0.0`.
 
 ## Package
 
@@ -29,7 +29,7 @@ github.com/agentruntime-io/go-service-kit
 Install:
 
 ```powershell
-go get github.com/agentruntime-io/go-service-kit@v0.1.0
+go get github.com/agentruntime-io/go-service-kit@v0.1.1
 ```
 
 Import:
@@ -77,24 +77,36 @@ logging.LogRequestComplete(logger, ctx, logging.RequestComplete{
 Emit a dependency failure log:
 
 ```go
-logger.Error(
-    "vault read failed while resolving MCP source spec values",
-    logging.CorrelationFields(ctx)...,
-    logging.Dependency("vault"),
-    logging.Operation("source_spec_read"),
-    logging.ErrorCode("vault_read_failed"),
-)
+logging.LogDependencyFailure(logger, ctx, logging.DependencyFailure{
+    Message:    "vault read failed while resolving MCP source spec values",
+    Dependency: "vault",
+    Operation:  "source_spec_read",
+    ErrorCode:  "vault_read_failed",
+    Err:        err,
+})
+```
+
+Emit a phase log that also adds a span event:
+
+```go
+logging.LogPhase(logger, ctx, logging.PhaseLog{
+    Message: "mcp config request is resolving allowed config keys",
+    Phase:   "allowed_keys.resolve",
+    Level:   logging.LevelInfo,
+    Fields:  []any{"component", "mcp_config"},
+})
 ```
 
 ## Included packages
 
-- `logging`: shared `zap` logger construction, canonical fields, context correlation, request completion logs, dependency failure logs, and sanitization helpers
+- `logging`: shared `zap` logger construction, canonical fields, context correlation, request completion logs, dependency failure logs, phase logs, sanitization helpers, and a shared GORM logger adapter
 
 ## Release files
 
 - [CHANGELOG.md](C:/agentruntime/agentruntime/go-common/go-service-kit/CHANGELOG.md)
 - [RELEASING.md](C:/agentruntime/agentruntime/go-common/go-service-kit/RELEASING.md)
 - [RELEASE_NOTES_v0.1.0.md](C:/agentruntime/agentruntime/go-common/go-service-kit/RELEASE_NOTES_v0.1.0.md)
+- [RELEASE_NOTES_v0.1.1.md](C:/agentruntime/agentruntime/go-common/go-service-kit/RELEASE_NOTES_v0.1.1.md)
 
 ## License
 

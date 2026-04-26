@@ -2,9 +2,11 @@ package logging
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type RequestComplete struct {
@@ -18,7 +20,7 @@ type RequestComplete struct {
 	ErrorMessage string
 	Dependency   string
 
-	Fields []zap.Field
+	Fields []any
 }
 
 func LogRequestComplete(logger *zap.Logger, ctx context.Context, event RequestComplete) {
@@ -26,7 +28,7 @@ func LogRequestComplete(logger *zap.Logger, ctx context.Context, event RequestCo
 		return
 	}
 
-	fields := make([]zap.Field, 0, 10+len(event.Fields))
+	fields := make([]zap.Field, 0, 12+len(event.Fields))
 	fields = append(fields, CorrelationFields(ctx)...)
 	if event.Method != "" {
 		fields = append(fields, Method(event.Method))
@@ -38,7 +40,7 @@ func LogRequestComplete(logger *zap.Logger, ctx context.Context, event RequestCo
 		fields = append(fields, Status(event.Status))
 	}
 	if event.Duration > 0 {
-		fields = append(fields, DurationMS(event.Duration))
+		fields = append(fields, DurationMSFloat(event.Duration))
 	}
 	if event.ErrorCode != "" {
 		fields = append(fields, ErrorCode(event.ErrorCode))
@@ -49,9 +51,9 @@ func LogRequestComplete(logger *zap.Logger, ctx context.Context, event RequestCo
 	if event.Dependency != "" {
 		fields = append(fields, Dependency(event.Dependency))
 	}
-	fields = append(fields, event.Fields...)
+	fields = append(fields, AttrsToFields(event.Fields...)...)
 
-	logger.Info(requestCompletedMessage(event.Service), fields...)
+	writeFields(logger, requestCompleteLevel(event.Status), requestCompletedMessage(event.Service), dedupeFields(fields)...)
 }
 
 func requestCompletedMessage(service string) string {
@@ -59,4 +61,15 @@ func requestCompletedMessage(service string) string {
 		return "request completed"
 	}
 	return service + " request completed"
+}
+
+func requestCompleteLevel(status int) zapcore.Level {
+	switch {
+	case status >= http.StatusInternalServerError:
+		return LevelError
+	case status >= http.StatusBadRequest:
+		return LevelWarn
+	default:
+		return LevelInfo
+	}
 }

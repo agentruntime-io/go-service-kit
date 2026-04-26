@@ -1,6 +1,6 @@
 # Releasing go-service-kit
 
-This repository should use tagged releases. Consumers should depend on tags such as `v0.1.0`, not floating commits, unless they are intentionally testing unreleased changes.
+This repository should use tagged releases. Consumers should depend on tags such as `v0.1.1`, not floating commits, unless they are intentionally testing unreleased changes.
 
 ## Release checklist
 
@@ -18,14 +18,14 @@ This repository should use tagged releases. Consumers should depend on tags such
 6. Create an annotated tag:
 
    ```powershell
-   git tag -a v0.1.0 -m "go-service-kit v0.1.0"
+   git tag -a v0.1.1 -m "go-service-kit v0.1.1"
    ```
 
 7. Push the branch and tag:
 
    ```powershell
    git push origin main
-   git push origin v0.1.0
+   git push origin v0.1.1
    ```
 
 8. Publish the GitHub release using the corresponding release note.
@@ -43,4 +43,3 @@ Each release should have:
 - a `CHANGELOG.md` entry
 - a release note markdown file
 - updated README usage guidance when the public package surface changes
-
