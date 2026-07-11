@@ -27,7 +27,14 @@ type Config struct {
 	Format  string
 	Level   string
 
+	// Output overrides the default stdout sink.  If FileOutput is also set,
+	// logs are written to both.
 	Output io.Writer
+
+	// FileOutput is an optional path to an additional JSON log file.
+	// When set, New() tees every log to this file alongside the primary output.
+	// The file is opened in append mode and created if it does not exist.
+	FileOutput string
 
 	AddCaller       bool
 	DisableCaller   bool

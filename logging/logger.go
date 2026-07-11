@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -68,6 +69,21 @@ func New(cfg Config) (*zap.Logger, error) {
 	}
 	if cfg.shouldAddCaller() {
 		options = append(options, zap.AddCaller())
+	}
+
+	// Tee to a file when FileOutput is configured.
+	if path := strings.TrimSpace(cfg.FileOutput); path != "" {
+		f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "logging: cannot open file output %s: %v\n", path, err)
+		} else {
+			fileCore := zapcore.NewCore(
+				zapcore.NewJSONEncoder(encoderConfig),
+				zapcore.AddSync(f),
+				level,
+			)
+			core = zapcore.NewTee(core, fileCore)
+		}
 	}
 
 	logger := zap.New(core, options...)
