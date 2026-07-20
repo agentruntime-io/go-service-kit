@@ -3,10 +3,14 @@ package logging
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -67,6 +71,21 @@ func New(cfg Config) (*zap.Logger, error) {
 		options = append(options, zap.AddCaller())
 	}
 
+	// Tee to a file when FileOutput is configured.
+	if path := strings.TrimSpace(cfg.FileOutput); path != "" {
+		f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "logging: cannot open file output %s: %v\n", path, err)
+		} else {
+			fileCore := zapcore.NewCore(
+				zapcore.NewJSONEncoder(encoderConfig),
+				zapcore.AddSync(f),
+				level,
+			)
+			core = zapcore.NewTee(core, fileCore)
+		}
+	}
+
 	logger := zap.New(core, options...)
 	if cfg.Service != "" {
 		logger = logger.With(Service(cfg.Service))
@@ -100,18 +119,36 @@ func InfoContext(ctx context.Context, msg string, args ...any)  { write(ctx, Lev
 func WarnContext(ctx context.Context, msg string, args ...any)  { write(ctx, LevelWarn, msg, args...) }
 func ErrorContext(ctx context.Context, msg string, args ...any) { write(ctx, LevelError, msg, args...) }
 
+// write is the core dispatch function.
+//
+// For context-aware calls it does two things:
+//  1. Emits a structured log that includes both correlation fields (trace_id,
+//     span_id, tenant_id, …) and the caller's own fields.
+//  2. Mirrors the call onto the active OTel span as a named event so the
+//     message and its fields are visible directly in the trace UI — the same
+//     pattern as the "logs" entries in a Jaeger trace.
 func write(ctx context.Context, level zapcore.Level, msg string, args ...any) {
 	logger := L()
 	if logger == nil {
 		return
 	}
 
-	fields := make([]zap.Field, 0, len(args)+4)
+	// Split caller fields out so they can be sent to the span separately.
+	callerFields := AttrsToFields(args...)
+
+	// Structured log: correlation fields + caller fields.
+	logFields := make([]zap.Field, 0, len(callerFields)+8)
 	if ctx != nil {
-		fields = append(fields, CorrelationFields(ctx)...)
+		logFields = append(logFields, CorrelationFields(ctx)...)
 	}
-	fields = append(fields, AttrsToFields(args...)...)
-	writeFields(logger, level, msg, fields...)
+	logFields = append(logFields, callerFields...)
+	writeFields(logger, level, msg, logFields...)
+
+	// Span event: caller fields only — trace_id/span_id live on the span
+	// context already; repeating them in every event would be noise.
+	if ctx != nil {
+		addSpanLogEvent(ctx, msg, callerFields)
+	}
 }
 
 func writeFields(logger *zap.Logger, level zapcore.Level, msg string, fields ...zap.Field) {
@@ -121,6 +158,68 @@ func writeFields(logger *zap.Logger, level zapcore.Level, msg string, fields ...
 	if ce := logger.Check(level, msg); ce != nil {
 		ce.Write(fields...)
 	}
+}
+
+// addSpanLogEvent adds the log message as a named event on the active span so
+// that every InfoContext / ErrorContext / … call appears in the trace exactly
+// like the "logs" entries visible in the Jaeger UI.
+func addSpanLogEvent(ctx context.Context, msg string, fields []zap.Field) {
+	span := trace.SpanFromContext(ctx)
+	if !span.IsRecording() {
+		return
+	}
+	attrs := make([]attribute.KeyValue, 0, len(fields))
+	for _, f := range fields {
+		if kv, ok := fieldToAttribute(f); ok {
+			attrs = append(attrs, kv)
+		}
+	}
+	span.AddEvent(msg, trace.WithAttributes(attrs...))
+}
+
+// fieldToAttribute converts a single zap.Field to an OTel attribute.KeyValue.
+// Returns false for field types that have no meaningful attribute representation
+// (e.g. namespace markers, binary blobs).
+func fieldToAttribute(f zap.Field) (attribute.KeyValue, bool) {
+	switch f.Type {
+	case zapcore.StringType:
+		return attribute.String(f.Key, f.String), true
+
+	case zapcore.ErrorType:
+		if f.Interface != nil {
+			return attribute.String(f.Key, f.Interface.(error).Error()), true
+		}
+
+	case zapcore.Int64Type, zapcore.Int32Type, zapcore.Int16Type, zapcore.Int8Type:
+		return attribute.Int64(f.Key, f.Integer), true
+
+	case zapcore.Uint64Type:
+		return attribute.Int64(f.Key, int64(uint64(f.Integer))), true
+
+	case zapcore.Uint32Type, zapcore.Uint16Type, zapcore.Uint8Type:
+		return attribute.Int64(f.Key, f.Integer), true
+
+	case zapcore.Float64Type:
+		return attribute.Float64(f.Key, math.Float64frombits(uint64(f.Integer))), true
+
+	case zapcore.Float32Type:
+		return attribute.Float64(f.Key, float64(math.Float32frombits(uint32(f.Integer)))), true
+
+	case zapcore.BoolType:
+		return attribute.Bool(f.Key, f.Integer == 1), true
+
+	case zapcore.DurationType:
+		return attribute.Int64(f.Key+"_ms", time.Duration(f.Integer).Milliseconds()), true
+
+	case zapcore.StringerType:
+		if s, ok := f.Interface.(fmt.Stringer); ok {
+			return attribute.String(f.Key, s.String()), true
+		}
+
+	case zapcore.ReflectType:
+		return attribute.String(f.Key, fmt.Sprintf("%v", f.Interface)), true
+	}
+	return attribute.KeyValue{}, false
 }
 
 func defaultLevel(level string) string {

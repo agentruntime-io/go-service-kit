@@ -8,19 +8,25 @@ import (
 	"go.uber.org/zap"
 )
 
-type contextKey string
+// ContextKey is the type used for all logging context keys.  It is exported so
+// that external middleware (e.g. auth, request-ID) can store values directly
+// with the same keys that CorrelationFields reads — no registered extractor or
+// dual-write required.
+type ContextKey string
 
 const (
-	requestIDKey  contextKey = "request_id"
-	tenantIDKey   contextKey = "tenant_id"
-	projectIDKey  contextKey = "project_id"
-	userIDKey     contextKey = "user_id"
-	workflowIDKey contextKey = "workflow_id"
-	runIDKey      contextKey = "run_id"
-	instanceIDKey contextKey = "instance_id"
-	serverIDKey   contextKey = "server_id"
+	RequestIDKey  ContextKey = "request_id"
+	TenantIDKey   ContextKey = "tenant_id"
+	ProjectIDKey  ContextKey = "project_id"
+	UserIDKey     ContextKey = "user_id"
+	WorkflowIDKey ContextKey = "workflow_id"
+	RunIDKey      ContextKey = "run_id"
+	InstanceIDKey ContextKey = "instance_id"
+	ServerIDKey   ContextKey = "server_id"
 )
 
+// ContextFieldExtractor is a function that extracts additional zap fields from
+// a context.  Register custom extractors via RegisterContextFieldExtractor.
 type ContextFieldExtractor func(context.Context) []zap.Field
 
 var (
@@ -29,35 +35,35 @@ var (
 )
 
 func WithRequestID(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, requestIDKey, value)
+	return context.WithValue(ctx, RequestIDKey, value)
 }
 
 func WithTenantID(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, tenantIDKey, value)
+	return context.WithValue(ctx, TenantIDKey, value)
 }
 
 func WithProjectID(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, projectIDKey, value)
+	return context.WithValue(ctx, ProjectIDKey, value)
 }
 
 func WithUserID(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, userIDKey, value)
+	return context.WithValue(ctx, UserIDKey, value)
 }
 
 func WithWorkflowID(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, workflowIDKey, value)
+	return context.WithValue(ctx, WorkflowIDKey, value)
 }
 
 func WithRunID(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, runIDKey, value)
+	return context.WithValue(ctx, RunIDKey, value)
 }
 
 func WithInstanceID(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, instanceIDKey, value)
+	return context.WithValue(ctx, InstanceIDKey, value)
 }
 
 func WithServerID(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, serverIDKey, value)
+	return context.WithValue(ctx, ServerIDKey, value)
 }
 
 func RegisterContextFieldExtractor(extractor ContextFieldExtractor) {
@@ -75,28 +81,28 @@ func CorrelationFields(ctx context.Context) []zap.Field {
 	}
 
 	fields := make([]zap.Field, 0, 10)
-	if value, ok := valueFromContext(ctx, requestIDKey); ok {
+	if value, ok := valueFromContext(ctx, RequestIDKey); ok {
 		fields = append(fields, RequestID(value))
 	}
-	if value, ok := valueFromContext(ctx, tenantIDKey); ok {
+	if value, ok := valueFromContext(ctx, TenantIDKey); ok {
 		fields = append(fields, TenantID(value))
 	}
-	if value, ok := valueFromContext(ctx, projectIDKey); ok {
+	if value, ok := valueFromContext(ctx, ProjectIDKey); ok {
 		fields = append(fields, ProjectID(value))
 	}
-	if value, ok := valueFromContext(ctx, userIDKey); ok {
+	if value, ok := valueFromContext(ctx, UserIDKey); ok {
 		fields = append(fields, UserID(value))
 	}
-	if value, ok := valueFromContext(ctx, workflowIDKey); ok {
+	if value, ok := valueFromContext(ctx, WorkflowIDKey); ok {
 		fields = append(fields, WorkflowID(value))
 	}
-	if value, ok := valueFromContext(ctx, runIDKey); ok {
+	if value, ok := valueFromContext(ctx, RunIDKey); ok {
 		fields = append(fields, RunID(value))
 	}
-	if value, ok := valueFromContext(ctx, instanceIDKey); ok {
+	if value, ok := valueFromContext(ctx, InstanceIDKey); ok {
 		fields = append(fields, InstanceID(value))
 	}
-	if value, ok := valueFromContext(ctx, serverIDKey); ok {
+	if value, ok := valueFromContext(ctx, ServerIDKey); ok {
 		fields = append(fields, ServerID(value))
 	}
 
@@ -119,7 +125,7 @@ func CorrelationFields(ctx context.Context) []zap.Field {
 	return dedupeFields(fields)
 }
 
-func valueFromContext(ctx context.Context, key contextKey) (string, bool) {
+func valueFromContext(ctx context.Context, key ContextKey) (string, bool) {
 	value, ok := ctx.Value(key).(string)
 	if !ok || value == "" {
 		return "", false
