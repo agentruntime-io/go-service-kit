@@ -4,6 +4,12 @@ All notable changes to `go-service-kit` will be documented in this file.
 
 The format is based on Keep a Changelog, adapted for this repository.
 
+## [0.1.5] - 2026-10-03
+
+### Security
+
+- OpenTelemetry Go (`otel`, `trace`) **1.40.0 → 1.45.0** (CVE-2026-29181 baggage header amplification and related advisories)
+
 ## [0.1.2] - 2026-04-26
 
 ### Added
