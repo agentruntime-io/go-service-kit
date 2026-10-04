@@ -4,6 +4,12 @@ All notable changes to `go-service-kit` will be documented in this file.
 
 The format is based on Keep a Changelog, adapted for this repository.
 
+## [0.1.6] - 2026-10-04
+
+### Added
+
+- `chatpolicy.MidTurnInboxEnabled` — shared mid-turn inbox (I40) gate for BFF and chat-service.
+
 ## [0.1.5] - 2026-10-03
 
 ### Security
